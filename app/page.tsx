@@ -1,10 +1,12 @@
 'use client'
 import { useState } from 'react'
-import { Send, Bot, User } from 'lucide-react'
+import { Send, Bot, User, AlertTriangle, ShieldCheck } from 'lucide-react'
 
 interface Message {
   role: 'user' | 'assistant'
   content: string
+  type: 'safe' | 'alert'
+  timestamp: string
 }
 
 export default function Home() {
@@ -14,7 +16,7 @@ export default function Home() {
 
   const sendMessage = async () => {
     if (!input.trim()) return
-    const userMessage: Message = { role: 'user', content: input }
+    const userMessage: Message = { role: 'user', content: input, type: 'safe', timestamp: new Date().toLocaleTimeString() }
     setMessages(prev => [...prev, userMessage])
     setInput('')
     setIsLoading(true)
@@ -27,12 +29,15 @@ export default function Home() {
       })
       if (!res.ok) throw new Error('Failed to get response')
       const data = await res.json()
-      const assistantMessage: Message = { role: 'assistant', content: data.reply }
+      
+      // Determine message type based on AI reply
+      const type = data.reply.startsWith('🚨') ? 'alert' : 'safe'
+      const assistantMessage: Message = { role: 'assistant', content: data.reply, type, timestamp: new Date().toLocaleTimeString() }
       setMessages(prev => [...prev, assistantMessage])
     } catch (error) {
       setMessages(prev => [
         ...prev,
-        { role: 'assistant', content: 'Sorry, there was an error processing your message.' }
+        { role: 'assistant', content: 'Sorry, error processing message.', type: 'alert', timestamp: new Date().toLocaleTimeString() }
       ])
     } finally {
       setIsLoading(false)
@@ -46,84 +51,70 @@ export default function Home() {
     }
   }
 
+  const totalAlerts = messages.filter(m => m.type === 'alert').length
+  const totalSafe = messages.filter(m => m.type === 'safe' && m.role === 'assistant').length
+
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-600">
-      <div className="container mx-auto px-4 py-8 h-screen flex flex-col">
-        <div className="text-center text-white mb-8">
-          <h1 className="text-6xl font-bold mb-4">💬 Ghost Chat</h1>
-          <p className="text-xl opacity-90">Real-time AI chat with streaming responses!</p>
+    <main className="flex h-screen bg-gray-900 text-white">
+      {/* Sidebar */}
+      <aside className="w-64 bg-gray-800 p-6 flex flex-col space-y-6">
+        <h1 className="text-2xl font-bold mb-4">Phantom Guard</h1>
+        <div className="space-y-2">
+          <div className="flex items-center space-x-2">
+            <ShieldCheck className="text-green-400" /> 
+            <span>Safe Messages: {totalSafe}</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="text-red-500" /> 
+            <span>Alerts: {totalAlerts}</span>
+          </div>
         </div>
-        <div className="flex-1 bg-white/10 backdrop-blur-sm rounded-lg p-6 flex flex-col">
-          <div className="flex-1 overflow-y-auto space-y-4 mb-4">
-            {messages.length === 0 ? (
-              <div className="text-center text-white/60 py-12">
-                <Bot size={48} className="mx-auto mb-4" />
-                <p>Start a conversation! Type a message below.</p>
+        <div className="text-gray-400 mt-auto text-sm">
+          Ghost account simulation system for detecting fraud patterns
+        </div>
+      </aside>
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col">
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          {messages.map((message, idx) => (
+            <div key={idx} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-md px-4 py-2 rounded-lg break-words
+                ${message.type === 'alert' ? 'bg-red-700 text-white' : 'bg-green-700 text-white'}`}>
+                <div className="flex justify-between items-center text-sm opacity-80">
+                  <span>{message.role === 'user' ? 'You' : 'Phantom Guard'}</span>
+                  <span>{message.timestamp}</span>
+                </div>
+                <p className="mt-1">{message.content}</p>
               </div>
-            ) : (
-              messages.map((message, index) => (
-                <div
-                  key={index}
-                  className={`flex items-start space-x-3 ${
-                    message.role === 'user' ? 'justify-end' : 'justify-start'
-                  }`}
-                >
-                  {message.role === 'assistant' && (
-                    <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                      <Bot size={16} className="text-white" />
-                    </div>
-                  )}
-                  <div
-                    className={`max-w-xs lg:max-w-2xl px-4 py-2 rounded-lg ${
-                      message.role === 'user'
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-gray-700 text-white'
-                    }`}
-                  >
-                    <p className="whitespace-pre-wrap">{message.content}</p>
-                  </div>
-                  {message.role === 'user' && (
-                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                      <User size={16} className="text-white" />
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-            {isLoading && (
-              <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                  <Bot size={16} className="text-white" />
-                </div>
-                <div className="bg-gray-700 text-white px-4 py-2 rounded-lg">
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-                    <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-          <div className="flex space-x-4">
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Type your message here..."
-              className="flex-1 bg-white/20 text-white placeholder-white/60 px-4 py-3 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-white/50"
-              rows={1}
-              disabled={isLoading}
-            />
-            <button
-              onClick={sendMessage}
-              disabled={isLoading || !input.trim()}
-              className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-500 text-white px-6 py-3 rounded-lg font-semibold transition-colors flex items-center space-x-2"
-            >
-              <Send size={20} />
-              <span>Send</span>
-            </button>
-          </div>
+            </div>
+          ))}
+          {isLoading && (
+            <div className="flex justify-start space-x-2 animate-pulse">
+              <div className="w-8 h-8 bg-green-500 rounded-full"></div>
+              <div className="bg-green-700 text-white px-4 py-2 rounded-lg">Analyzing...</div>
+            </div>
+          )}
+        </div>
+
+        {/* Input */}
+        <div className="p-4 flex space-x-4 bg-gray-800">
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder="Enter a suspicious or fraudulent message..."
+            className="flex-1 bg-gray-700 text-white px-4 py-3 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-green-400"
+            rows={1}
+            disabled={isLoading}
+          />
+          <button
+            onClick={sendMessage}
+            disabled={isLoading || !input.trim()}
+            className="bg-green-500 hover:bg-green-600 disabled:bg-gray-500 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+          >
+            <Send size={20} />
+          </button>
         </div>
       </div>
     </main>
